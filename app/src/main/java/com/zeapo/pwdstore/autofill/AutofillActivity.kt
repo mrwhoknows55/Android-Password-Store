@@ -78,7 +78,7 @@ class AutofillActivity : AppCompatActivity() {
                         "", "/first", "/never" -> putString(packageName, path)
                         else -> {
                             val matches = arrayListOf(*preference!!.trim { it <= ' ' }.splitLines())
-                            matches.add(path)
+                            matches.add(path!!)
                             val paths = StringUtils.join(matches, "\n")
                             putString(packageName, paths)
                         }
