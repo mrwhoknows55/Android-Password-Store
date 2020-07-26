@@ -4,7 +4,6 @@
  */
 package com.zeapo.pwdstore
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -19,7 +18,6 @@ import android.view.KeyEvent
 import android.view.Menu
 import android.view.MenuItem
 import android.view.MenuItem.OnActionExpandListener
-import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.activity.viewModels
 import androidx.appcompat.widget.AppCompatTextView
@@ -42,7 +40,6 @@ import com.github.michaelbull.result.getOr
 import com.github.michaelbull.result.onFailure
 import com.github.michaelbull.result.runCatching
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
 import com.zeapo.pwdstore.autofill.oreo.AutofillMatcher
 import com.zeapo.pwdstore.crypto.BasePgpActivity.Companion.getLongName
@@ -61,7 +58,6 @@ import com.zeapo.pwdstore.utils.PasswordRepository.Companion.initialize
 import com.zeapo.pwdstore.utils.PasswordRepository.Companion.isInitialized
 import com.zeapo.pwdstore.utils.PreferenceKeys
 import com.zeapo.pwdstore.utils.base64
-import com.zeapo.pwdstore.utils.isPermissionGranted
 import com.zeapo.pwdstore.utils.commitChange
 import com.zeapo.pwdstore.utils.contains
 import com.zeapo.pwdstore.utils.getString
@@ -112,14 +108,7 @@ class PasswordStore : BaseGitActivity() {
     @SuppressLint("NewApi")
     override fun onCreate(savedInstanceState: Bundle?) {
         activity = this
-        // If user opens app with permission granted then revokes and returns,
-        // prevent attempt to create password list fragment
-        var savedInstance = savedInstanceState
-        if (savedInstanceState != null && (!settings.getBoolean(PreferenceKeys.GIT_EXTERNAL, false) ||
-                !isPermissionGranted(Manifest.permission.WRITE_EXTERNAL_STORAGE))) {
-            savedInstance = null
-        }
-        super.onCreate(savedInstance)
+        super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_pwdstore)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
             shortcutManager = getSystemService()
@@ -182,11 +171,7 @@ class PasswordStore : BaseGitActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (settings.getBoolean(PreferenceKeys.GIT_EXTERNAL, false)) {
-            hasRequiredStoragePermissions()
-        } else {
-            checkLocalRepository()
-        }
+        checkLocalRepository()
         if (settings.getBoolean(PreferenceKeys.SEARCH_ON_START, false) && ::searchItem.isInitialized) {
             if (!searchItem.isActionViewExpanded) {
                 searchItem.expandActionView()
@@ -318,32 +303,6 @@ class PasswordStore : BaseGitActivity() {
             success = { refreshPasswordList() },
             failure = { promptOnErrorHandler(it) },
         )
-    }
-
-    /**
-     * Validates if storage permission is granted, and requests for it if not. The return value
-     * is true if the permission has been granted.
-     */
-    private fun hasRequiredStoragePermissions(): Boolean {
-        return if (!isPermissionGranted(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-            Snackbar.make(
-                findViewById(R.id.main_layout),
-                getString(R.string.access_sdcard_text),
-                Snackbar.LENGTH_INDEFINITE
-            ).run {
-                setAction(getString(R.string.snackbar_action_grant)) {
-                    registerForActivityResult(RequestPermission()) { granted ->
-                        if (granted) checkLocalRepository()
-                    }.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                    dismiss()
-                }
-                show()
-            }
-            false
-        } else {
-            checkLocalRepository()
-            true
-        }
     }
 
     private fun checkLocalRepository() {

@@ -6,7 +6,6 @@
 
 package com.zeapo.pwdstore.ui.onboarding.fragments
 
-import android.Manifest
 import android.os.Bundle
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,7 +23,6 @@ import com.zeapo.pwdstore.utils.PasswordRepository
 import com.zeapo.pwdstore.utils.PreferenceKeys
 import com.zeapo.pwdstore.utils.finish
 import com.zeapo.pwdstore.utils.getString
-import com.zeapo.pwdstore.utils.isPermissionGranted
 import com.zeapo.pwdstore.utils.listFilesRecursively
 import com.zeapo.pwdstore.utils.sharedPrefs
 import com.zeapo.pwdstore.utils.viewBinding
@@ -52,18 +50,6 @@ class RepoLocationFragment : Fragment(R.layout.fragment_repo_location) {
                 createRepository()
             }
         }
-    }
-
-    private val externalDirPermGrantedAction = createPermGrantedAction {
-        externalDirectorySelectAction.launch(UserPreference.createDirectorySelectionIntent(requireContext()))
-    }
-
-    private val repositoryUsePermGrantedAction = createPermGrantedAction {
-        initializeRepositoryInfo()
-    }
-
-    private val repositoryChangePermGrantedAction = createPermGrantedAction {
-        repositoryInitAction.launch(UserPreference.createDirectorySelectionIntent(requireContext()))
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -95,30 +81,16 @@ class RepoLocationFragment : Fragment(R.layout.fragment_repo_location) {
         settings.edit { putBoolean(PreferenceKeys.GIT_EXTERNAL, true) }
         val externalRepo = settings.getString(PreferenceKeys.GIT_EXTERNAL_REPO)
         if (externalRepo == null) {
-            if (!isPermissionGranted(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                externalDirPermGrantedAction.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            } else {
-                // Unlikely we have storage permissions without user ever selecting a directory,
-                // but let's not assume.
-                externalDirectorySelectAction.launch(UserPreference.createDirectorySelectionIntent(requireContext()))
-            }
+            externalDirectorySelectAction.launch(UserPreference.createDirectorySelectionIntent(requireContext()))
         } else {
             MaterialAlertDialogBuilder(requireActivity())
                 .setTitle(resources.getString(R.string.directory_selected_title))
                 .setMessage(resources.getString(R.string.directory_selected_message, externalRepo))
                 .setPositiveButton(resources.getString(R.string.use)) { _, _ ->
-                    if (!isPermissionGranted(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                        repositoryUsePermGrantedAction.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                    } else {
-                        initializeRepositoryInfo()
-                    }
+                    initializeRepositoryInfo()
                 }
                 .setNegativeButton(resources.getString(R.string.change)) { _, _ ->
-                    if (!isPermissionGranted(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                        repositoryChangePermGrantedAction.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                    } else {
-                        repositoryInitAction.launch(UserPreference.createDirectorySelectionIntent(requireContext()))
-                    }
+                    repositoryInitAction.launch(UserPreference.createDirectorySelectionIntent(requireContext()))
                 }
                 .show()
         }
@@ -168,9 +140,6 @@ class RepoLocationFragment : Fragment(R.layout.fragment_repo_location) {
     private fun initializeRepositoryInfo() {
         val externalRepo = settings.getBoolean(PreferenceKeys.GIT_EXTERNAL, false)
         val externalRepoPath = settings.getString(PreferenceKeys.GIT_EXTERNAL_REPO)
-        if (externalRepo && !isPermissionGranted(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-            return
-        }
         if (externalRepo && externalRepoPath != null) {
             if (checkExternalDirectory()) {
                 finish()
@@ -179,13 +148,6 @@ class RepoLocationFragment : Fragment(R.layout.fragment_repo_location) {
         }
         createRepository()
     }
-
-    private fun createPermGrantedAction(block: () -> Unit) =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) {
-                block.invoke()
-            }
-        }
 
     companion object {
 
