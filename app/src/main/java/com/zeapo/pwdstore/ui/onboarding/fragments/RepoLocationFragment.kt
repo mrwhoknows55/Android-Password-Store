@@ -19,8 +19,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.zeapo.pwdstore.R
 import com.zeapo.pwdstore.UserPreference
 import com.zeapo.pwdstore.databinding.FragmentRepoLocationBinding
+import com.zeapo.pwdstore.di.Graph
 import com.zeapo.pwdstore.utils.PasswordRepository
-import com.zeapo.pwdstore.utils.PasswordSortOrder
 import com.zeapo.pwdstore.utils.PreferenceKeys
 import com.zeapo.pwdstore.utils.finish
 import com.zeapo.pwdstore.utils.getString
@@ -34,8 +34,6 @@ class RepoLocationFragment : Fragment(R.layout.fragment_repo_location) {
     private val firstRunActivity by lazy { requireActivity() }
     private val settings by lazy { firstRunActivity.applicationContext.sharedPrefs }
     private val binding by viewBinding(FragmentRepoLocationBinding::bind)
-    private val sortOrder: PasswordSortOrder
-        get() = PasswordSortOrder.getSortOrder(settings)
 
     private val repositoryInitAction = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == AppCompatActivity.RESULT_OK) {
@@ -102,12 +100,12 @@ class RepoLocationFragment : Fragment(R.layout.fragment_repo_location) {
             settings.getString(PreferenceKeys.GIT_EXTERNAL_REPO) != null) {
             val externalRepoPath = settings.getString(PreferenceKeys.GIT_EXTERNAL_REPO)
             val dir = externalRepoPath?.let { File(it) }
-            if (dir != null && // The directory could be opened
-                dir.exists() && // The directory exists
+            if (dir != null) Graph.buildStoreImpl(dir, true) else return false
+            if (dir.exists() && // The directory exists
                 dir.isDirectory && // The directory, is really a directory
                 dir.listFilesRecursively().isNotEmpty() && // The directory contains files
                 // The directory contains a non-zero number of password files
-                PasswordRepository.getPasswords(dir, PasswordRepository.getRepositoryDirectory(), sortOrder).isNotEmpty()
+                Graph.store.listRootPasswords().any { it.extension == "gpg" }
             ) {
                 PasswordRepository.closeRepository()
                 return true
